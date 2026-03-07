@@ -4,7 +4,7 @@ out = "out"
 libs = ["lib"]
 remappings = ["bc-lib/=src/"]
 fs_permissions = [
-    { access = "read-write", path = "./broadcast" },
+    { access = "read", path = "./broadcast" },
     { access = "read", path = "." },
 ]
 
@@ -17,3 +17,7 @@ number_underscore = "thousands"
 quote_style = "double"
 tab_width = 4
 wrap_comments = true
+
+[lint]
+exclude_lints = ["mixed-case-variable"]
+ignore = ["test/**/*"]
