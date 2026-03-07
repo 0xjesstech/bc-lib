@@ -7,11 +7,13 @@ import { BCDeploy } from "bc-lib/BCDeploy.sol";
 import {
     AgreementDetails,
     Contact,
+    BcChain,
     BcAccount,
     BountyTerms,
     ChildContractScope,
     IdentityRequirements
 } from "bc-lib/types/AgreementTypes.sol";
+import { BCConfig } from "bc-lib/BCConfig.sol";
 import {
     MockAgreementFactory,
     MockAgreement,
@@ -73,6 +75,32 @@ contract BCSafeHarborHarness is BCDeploy, BCSafeHarbor {
     function exposedGetDeployedContracts() external view returns (address[] memory) {
         return getDeployedContracts();
     }
+
+    function exposedBuildChainScope(
+        address[] memory contracts,
+        address recoveryAddr,
+        string memory caip2Id
+    )
+        external
+        pure
+        returns (BcChain memory)
+    {
+        return buildChainScope(contracts, recoveryAddr, caip2Id);
+    }
+
+    function exposedBuildAgreementDetails(
+        string memory protocolName,
+        Contact[] memory contacts,
+        BcChain[] memory chains,
+        BountyTerms memory bountyTerms,
+        string memory agreementURI
+    )
+        external
+        pure
+        returns (AgreementDetails memory)
+    {
+        return buildAgreementDetails(protocolName, contacts, chains, bountyTerms, agreementURI);
+    }
 }
 
 contract BCSafeHarborTest is Test {
@@ -131,6 +159,7 @@ contract BCSafeHarborTest is Test {
         assertEq(details.chains[0].caip2ChainId, "eip155:627");
         assertEq(details.chains[0].accounts.length, 1);
         assertEq(details.bountyTerms.bountyPercentage, 10);
+        assertEq(details.agreementURI, BCConfig.BATTLECHAIN_SAFE_HARBOR_URI);
     }
 
     function test_createAndAdoptAgreement() public {
@@ -206,5 +235,80 @@ contract BCSafeHarborTest is Test {
         harness.exposedRequestAttackMode(agreement);
 
         assertTrue(attackRegistry.attackRequested(agreement));
+    }
+
+    // -------------------------------------------------------------------------
+    // buildChainScope — arbitrary chain
+    // -------------------------------------------------------------------------
+
+    function test_buildChainScope_arbitraryChain() public view {
+        address[] memory contracts = new address[](1);
+        contracts[0] = address(0xAAA);
+
+        BcChain memory chain = harness.exposedBuildChainScope(contracts, address(0xBBB), "eip155:42161");
+
+        assertEq(chain.caip2ChainId, "eip155:42161");
+        assertEq(chain.accounts.length, 1);
+    }
+
+    // -------------------------------------------------------------------------
+    // buildAgreementDetails — explicit URI
+    // -------------------------------------------------------------------------
+
+    function test_buildAgreementDetails_explicitURI() public view {
+        Contact[] memory contacts = new Contact[](1);
+        contacts[0] = Contact({ name: "Test", contact: "test@test.xyz" });
+
+        address[] memory contracts = new address[](1);
+        contracts[0] = address(0xCCC);
+
+        BcChain[] memory chains = new BcChain[](1);
+        chains[0] = harness.exposedBuildChainScope(contracts, address(0xDDD), "eip155:1");
+
+        string memory uri = "https://example.com/agreement.json";
+        AgreementDetails memory details =
+            harness.exposedBuildAgreementDetails("TestProto", contacts, chains, harness.exposedDefaultBountyTerms(), uri);
+
+        assertEq(details.agreementURI, uri);
+        assertEq(details.protocolName, "TestProto");
+        assertEq(details.chains[0].caip2ChainId, "eip155:1");
+    }
+
+    // -------------------------------------------------------------------------
+    // Attack mode guards — revert on non-BattleChain
+    // -------------------------------------------------------------------------
+
+    function test_requestAttackMode_revertsOnNonBattleChain() public {
+        Contact[] memory contacts = new Contact[](1);
+        contacts[0] = Contact({ name: "Test", contact: "test@test.xyz" });
+
+        address[] memory contracts = new address[](1);
+        contracts[0] = address(0xCCC);
+
+        AgreementDetails memory details =
+            harness.exposedDefaultAgreementDetails("TestProto", contacts, contracts, address(0xDDD));
+
+        address agreement = harness.exposedCreateAndAdoptAgreement(details, address(this), keccak256("v1"));
+
+        vm.chainId(1);
+        vm.expectRevert(BCSafeHarbor.BCSafeHarbor__NotBattleChain.selector);
+        harness.exposedRequestAttackMode(agreement);
+    }
+
+    function test_skipToProduction_revertsOnNonBattleChain() public {
+        Contact[] memory contacts = new Contact[](1);
+        contacts[0] = Contact({ name: "Test", contact: "test@test.xyz" });
+
+        address[] memory contracts = new address[](1);
+        contracts[0] = address(0xCCC);
+
+        AgreementDetails memory details =
+            harness.exposedDefaultAgreementDetails("TestProto", contacts, contracts, address(0xDDD));
+
+        address agreement = harness.exposedCreateAndAdoptAgreement(details, address(this), keccak256("v1"));
+
+        vm.chainId(1);
+        vm.expectRevert(BCSafeHarbor.BCSafeHarbor__NotBattleChain.selector);
+        harness.exposedSkipToProduction(agreement);
     }
 }

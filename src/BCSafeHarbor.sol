@@ -23,6 +23,8 @@ abstract contract BCSafeHarbor is BCBase {
     uint256 private constant DEFAULT_BOUNTY_CAP_USD = 1_000_000;
     uint256 private constant DEFAULT_COMMITMENT_DAYS = 14;
 
+    error BCSafeHarbor__NotBattleChain();
+
     // -------------------------------------------------------------------------
     // Builder functions
     // -------------------------------------------------------------------------
@@ -48,7 +50,24 @@ abstract contract BCSafeHarbor is BCBase {
         }
     }
 
-    /// @notice Builds a BcChain entry for the current network.
+    /// @notice Builds a BcChain entry for any EVM chain.
+    function buildChainScope(
+        address[] memory contracts,
+        address recoveryAddr,
+        string memory caip2Id
+    )
+        internal
+        pure
+        returns (BcChain memory)
+    {
+        return BcChain({
+            assetRecoveryAddress: vm.toString(recoveryAddr),
+            accounts: buildAccounts(contracts),
+            caip2ChainId: caip2Id
+        });
+    }
+
+    /// @notice Builds a BcChain entry for the current BattleChain network.
     function buildBattleChainScope(
         address[] memory contracts,
         address recoveryAddr
@@ -57,14 +76,31 @@ abstract contract BCSafeHarbor is BCBase {
         view
         returns (BcChain memory)
     {
-        return BcChain({
-            assetRecoveryAddress: vm.toString(recoveryAddr),
-            accounts: buildAccounts(contracts),
-            caip2ChainId: BCConfig.caip2ChainId()
+        return buildChainScope(contracts, recoveryAddr, BCConfig.caip2ChainId());
+    }
+
+    /// @notice Builds a full AgreementDetails struct with explicit parameters.
+    function buildAgreementDetails(
+        string memory protocolName,
+        Contact[] memory contacts,
+        BcChain[] memory chains,
+        BountyTerms memory bountyTerms,
+        string memory agreementURI
+    )
+        internal
+        pure
+        returns (AgreementDetails memory)
+    {
+        return AgreementDetails({
+            protocolName: protocolName,
+            contactDetails: contacts,
+            chains: chains,
+            bountyTerms: bountyTerms,
+            agreementURI: agreementURI
         });
     }
 
-    /// @notice Builds a full AgreementDetails struct with sensible defaults.
+    /// @notice Builds a full AgreementDetails struct with BattleChain defaults.
     function defaultAgreementDetails(
         string memory protocolName,
         Contact[] memory contacts,
@@ -83,7 +119,7 @@ abstract contract BCSafeHarbor is BCBase {
             contactDetails: contacts,
             chains: chains,
             bountyTerms: defaultBountyTerms(),
-            agreementURI: ""
+            agreementURI: BCConfig.BATTLECHAIN_SAFE_HARBOR_URI
         });
     }
 
@@ -125,13 +161,15 @@ abstract contract BCSafeHarbor is BCBase {
     // AttackRegistry interaction
     // -------------------------------------------------------------------------
 
-    /// @notice Requests attack mode for an agreement.
+    /// @notice Requests attack mode for an agreement. Only available on BattleChain.
     function requestAttackMode(address agreementAddress) internal {
+        if (!_isBattleChain()) revert BCSafeHarbor__NotBattleChain();
         IAttackRegistry(_bcAttackRegistry()).requestUnderAttack(agreementAddress);
     }
 
-    /// @notice Skips to production for an agreement.
+    /// @notice Skips to production for an agreement. Only available on BattleChain.
     function skipToProduction(address agreementAddress) internal {
+        if (!_isBattleChain()) revert BCSafeHarbor__NotBattleChain();
         IAttackRegistry(_bcAttackRegistry()).goToProduction(agreementAddress);
     }
 }

@@ -1,0 +1,18 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+
+import { BCDeploy } from "src/BCDeploy.sol";
+import { BCSafeHarbor } from "src/BCSafeHarbor.sol";
+import { Contact } from "src/types/AgreementTypes.sol";
+
+/// @notice Single import combining BCDeploy and BCSafeHarbor with required protocol hooks.
+abstract contract BCScript is BCDeploy, BCSafeHarbor {
+    /// @notice The protocol name for the agreement.
+    function _protocolName() internal pure virtual returns (string memory);
+
+    /// @notice Contact details for security pre-notification.
+    function _contacts() internal pure virtual returns (Contact[] memory);
+
+    /// @notice Address that receives recovered assets.
+    function _recoveryAddress() internal view virtual returns (address);
+}

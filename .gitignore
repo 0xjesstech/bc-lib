@@ -16,3 +16,4 @@ docs/
 # Cyfrin
 battlechain-safe-harbor/
 broadcast/
+.DS_Store

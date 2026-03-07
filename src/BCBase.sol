@@ -40,4 +40,8 @@ abstract contract BCBase is Script {
         if (_deployerOverride != address(0)) return _deployerOverride;
         return BCConfig.deployer();
     }
+
+    function _isBattleChain() internal view returns (bool) {
+        return BCConfig.isBattleChain();
+    }
 }

@@ -17,6 +17,10 @@ contract BCConfigCaller {
     function caip2ChainId() external view returns (string memory) {
         return BCConfig.caip2ChainId();
     }
+
+    function createX() external view returns (address) {
+        return BCConfig.createX();
+    }
 }
 
 contract BCConfigTest is Test {
@@ -77,5 +81,66 @@ contract BCConfigTest is Test {
         vm.chainId(42_161);
         vm.expectRevert(abi.encodeWithSelector(BCConfig.BCConfig__UnsupportedChainId.selector, 42_161));
         caller.caip2ChainId();
+    }
+
+    // -------------------------------------------------------------------------
+    // isBattleChain
+    // -------------------------------------------------------------------------
+
+    function test_isBattleChain_mainnet() public {
+        vm.chainId(626);
+        assertTrue(BCConfig.isBattleChain());
+    }
+
+    function test_isBattleChain_testnet() public {
+        vm.chainId(627);
+        assertTrue(BCConfig.isBattleChain());
+    }
+
+    function test_isBattleChain_devnet() public {
+        vm.chainId(624);
+        assertTrue(BCConfig.isBattleChain());
+    }
+
+    function test_isBattleChain_false_mainnetEth() public {
+        vm.chainId(1);
+        assertFalse(BCConfig.isBattleChain());
+    }
+
+    function test_isBattleChain_false_anvil() public {
+        vm.chainId(31_337);
+        assertFalse(BCConfig.isBattleChain());
+    }
+
+    // -------------------------------------------------------------------------
+    // createX
+    // -------------------------------------------------------------------------
+
+    function test_createX_testnet() public {
+        vm.chainId(627);
+        assertEq(BCConfig.createX(), 0xf1Ebfaa992854ECcB01Ac1F60e5b5279095cca7F);
+    }
+
+    function test_createX_reverts_unsupportedChain() public {
+        vm.chainId(1);
+        vm.expectRevert(abi.encodeWithSelector(BCConfig.BCConfig__UnsupportedChainId.selector, 1));
+        caller.createX();
+    }
+
+    // -------------------------------------------------------------------------
+    // New constants
+    // -------------------------------------------------------------------------
+
+    function test_constants_uris() public pure {
+        assertGt(bytes(BCConfig.SAFE_HARBOR_V3_URI).length, 0);
+        assertGt(bytes(BCConfig.BATTLECHAIN_SAFE_HARBOR_URI).length, 0);
+    }
+
+    function test_constants_testnetAddresses() public pure {
+        assertTrue(BCConfig.TESTNET_CREATEX != address(0));
+        assertTrue(BCConfig.TESTNET_REGISTRY_IMPL != address(0));
+        assertTrue(BCConfig.TESTNET_AGREEMENT_FACTORY_IMPL != address(0));
+        assertTrue(BCConfig.TESTNET_ATTACK_REGISTRY_IMPL != address(0));
+        assertTrue(BCConfig.TESTNET_MOCK_REGISTRY_MODERATOR != address(0));
     }
 }
